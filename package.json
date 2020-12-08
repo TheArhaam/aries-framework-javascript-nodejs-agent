@@ -1,0 +1,26 @@
+{
+  "name": "afj-server",
+  "version": "1.0.0",
+  "description": "Server with aries-framework-javascript implementation",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "Aries",
+    "Hyperledger",
+    "Indy",
+    "Javascript"
+  ],
+  "author": "Arhaam Patvi",
+  "license": "ISC",
+  "dependencies": {
+    "aries-framework-javascript": "file:aries-framework-javascript-v1.0.0.tgz",
+    "await-poll": "^1.0.2",
+    "axios": "^0.21.0",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "indy-sdk": "^1.16.0-rc-162",
+    "node-fetch": "^2.6.1"
+  }
+}
