@@ -4,7 +4,7 @@ const { poll } = require('await-poll');
 const fetch = require('node-fetch');
 // WINDOWS: add LD_LIBRARY_PATH environment variable
 const indy = require('indy-sdk');
-const { Agent, decodeInvitationFromUrl } = require("aries-framework-javascript");
+const { Agent, decodeInvitationFromUrl, encodeInvitationToUrl } = require("aries-framework-javascript");
 const axios = require('axios');
 
 // ISSUE CREDENTIAL
@@ -109,7 +109,165 @@ router.post("/issue", async (request, response) => {
   return response.status(200).json("Credential Issued!");
 });
 
+// ISSUE CREDENTIAL - ACA to ACA
+router.post("/issue-aca", async (request, response) => {
+  console.log("ISSUE CREDENTIAL - ACA to ACA");
+  // INITIALIZE AGENT
+  console.log("===========================================================================");
+  console.log("INITIALIZE AGENTS")
+  console.log("===========================================================================");
+  const genesis = await downloadGenesis();
+  // console.log("genesis: " + genesis);
+  console.log("got genesis")
 
+  const genesisPath = await storeGenesis(genesis, 'genesis.txn');
+  console.log("genesisPath: " + genesisPath);
+
+  const agent1Config = {
+    label: 'javascript',
+    walletConfig: { id: 'wallet' + Math.random() },
+    walletCredentials: { key: '123' + Math.random() },
+    autoAcceptConnections: true,
+    poolName: 'test-103' + Math.random(),
+    genesisPath,
+    mediatorUrl: process.env.MEDIATOR_URL
+  };
+  const agent2Config = {
+    label: 'javascript',
+    walletConfig: { id: 'wallet' + Math.random() },
+    walletCredentials: { key: '123' + Math.random() },
+    autoAcceptConnections: true,
+    poolName: 'test-103' + Math.random(),
+    genesisPath,
+    mediatorUrl: process.env.MEDIATOR_URL
+  };
+  console.log("agent1Config: ", agent1Config);
+  console.log("agent2Config: ", agent2Config);
+
+  const inbound1 = new InboundTransporter();
+  const outbound1 = new OutboundTransporter();
+  const inbound2 = new InboundTransporter();
+  const outbound2 = new OutboundTransporter();
+
+  const agent1 = new Agent(agent1Config, inbound1, outbound1, indy);
+  const agent2 = new Agent(agent2Config, inbound2, outbound2, indy);
+  await agent1.init();
+  await agent2.init();
+  console.log("AGENTS INITIALIZED");
+
+  await agent1.wallet.initPublicDid();
+  await agent2.wallet.initPublicDid();
+
+  const publicDid1 = await agent1.getPublicDid();
+  const publicDid2 = await agent2.getPublicDid();
+  console.log("publicDid1: " + publicDid1.did);
+  console.log("publicDid2: " + publicDid2.did);
+
+  // CONNECT AGENTS
+  console.log("===========================================================================");
+  console.log("CONNECT AGENTS")
+  console.log("===========================================================================");
+  const newConnection = await agent1.connections.createConnection({ autoAcceptConnection: true });
+  const invitationUrl = await encodeInvitationToUrl(newConnection.invitation, agent1.getMediatorUrl());
+
+  const invitation = await decodeInvitationFromUrl(invitationUrl);
+  const acceptedConnection = await agent2.connections.receiveInvitation(invitation.toJSON(), { autoAcceptConnection: true });
+
+  const conn1 = await agent1.connections.find(newConnection.id);
+  const conn2 = await agent2.connections.find(acceptedConnection.id);
+  console.log("conn1 state: ", conn1.state);
+  console.log("conn2 state: ", conn2.state);
+
+  // CREATE SCHEMA
+  console.log("===========================================================================");
+  console.log("CREATE SCHEMA")
+  console.log("===========================================================================");
+  const schemaTemplate = {
+    name: `test-schema-${Math.random()}`,
+    attributes: ['name', 'age'],
+    version: '1.0',
+  };
+  const [schemaId, ledgerSchema] = await agent1.ledger.registerCredentialSchema(schemaTemplate);
+  console.log("schemaId: ", schemaId);
+  console.log("ledgerSchema: ", ledgerSchema);
+
+  // CREATE CREDENTIAL DEFINITION
+  console.log("===========================================================================");
+  console.log("CREATE CREDENTIAL DEFINITION")
+  console.log("===========================================================================");
+  const definitionTemplate = {
+    schema: ledgerSchema,
+    tag: 'TAG',
+    signatureType: 'CL',
+    config: { support_revocation: false },
+  };
+  const [credDefId, ledgerCredDef] = await agent1.ledger.registerCredentialDefinition(definitionTemplate);
+  console.log("credDefId: ", credDefId);
+  console.log("ledgerCredDefId: ", ledgerCredDef);
+
+  // ISSUE CREDENTIAL
+  console.log("===========================================================================");
+  console.log("ISSUE CREDENTIAL")
+  console.log("===========================================================================");
+  const newconn1 = await agent1.connections.find(newConnection.id);
+  const newconn2 = await agent2.connections.find(acceptedConnection.id);
+  console.log("conn1 state: ", newconn1.state);
+  console.log("conn2 state: ", newconn2.state);
+  const connection = await agent1.connections.find(newconn1.id);
+  console.log("connection: ", connection);
+  const credentialPreview = ({
+    attributes: [
+      {
+        name: 'name',
+        mimeType: 'text/plain',
+        value: 'test',
+      },
+      {
+        name: 'age',
+        mimeType: 'text/plain',
+        value: '99',
+      },
+    ],
+  });
+  await agent1.credentials.issueCredential(connection, {
+    credentialDefinitionId: credDefId,
+    comment: 'Test Credential',
+    preview: credentialPreview,
+  })
+
+  await sleep(5000);
+
+  // ACCEPT CREDENTIAL OFFER
+  console.log("===========================================================================");
+  console.log("ACCEPT CREDENTIAL OFFER")
+  console.log("===========================================================================");
+  const [cred] = await agent2.credentials.getCredentials();
+  console.log("cred: ", cred);
+  try {
+    await agent2.credentials.acceptCredential(cred);
+  }
+  catch (err) {
+    console.log("ACCEPT ERR: ", err);
+    return response.status(400).json("Credential Accept Error: " + err);
+  }
+
+  await sleep(5000);
+
+  // CHECK CREDENTIAL STATE
+  console.log("===========================================================================");
+  console.log("CHECK CREDENTIAL STATE")
+  console.log("===========================================================================");
+  const [credNew] = await agent2.credentials.getCredentials();
+  console.log("credNew: ", credNew);
+
+  return response.status(200).json("Credential Issued!");
+});
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 class InboundTransporter {
   constructor() {
