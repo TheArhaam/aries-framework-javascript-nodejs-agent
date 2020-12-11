@@ -130,7 +130,8 @@ router.post("/issue-aca", async (request, response) => {
     autoAcceptConnections: true,
     poolName: 'test-103' + Math.random(),
     genesisPath,
-    mediatorUrl: process.env.MEDIATOR_URL
+    mediatorUrl: process.env.MEDIATOR_URL,
+    publicDidSeed: '00000000000000000000000000000001'
   };
   const agent2Config = {
     label: 'javascript',
@@ -139,7 +140,8 @@ router.post("/issue-aca", async (request, response) => {
     autoAcceptConnections: true,
     poolName: 'test-103' + Math.random(),
     genesisPath,
-    mediatorUrl: process.env.MEDIATOR_URL
+    mediatorUrl: process.env.MEDIATOR_URL,
+    publicDidSeed: '00000000000000000000000000000002'
   };
   console.log("agent1Config: ", agent1Config);
   console.log("agent2Config: ", agent2Config);
@@ -154,9 +156,6 @@ router.post("/issue-aca", async (request, response) => {
   await agent1.init();
   await agent2.init();
   console.log("AGENTS INITIALIZED");
-
-  await agent1.wallet.initPublicDid();
-  await agent2.wallet.initPublicDid();
 
   const publicDid1 = await agent1.getPublicDid();
   const publicDid2 = await agent2.getPublicDid();
@@ -183,12 +182,11 @@ router.post("/issue-aca", async (request, response) => {
   console.log("CREATE SCHEMA")
   console.log("===========================================================================");
   const schemaTemplate = {
-    name: `test-schema-${Math.random()}`,
+    name: `test-schema`,
     attributes: ['name', 'age'],
-    version: '1.0',
+    version: '1.1',
   };
-  const [schemaId, ledgerSchema] = await agent1.ledger.registerCredentialSchema(schemaTemplate);
-  console.log("schemaId: ", schemaId);
+  const [, ledgerSchema] = await registerSchema(agent1, schemaTemplate);
   console.log("ledgerSchema: ", ledgerSchema);
 
   // CREATE CREDENTIAL DEFINITION
@@ -197,13 +195,14 @@ router.post("/issue-aca", async (request, response) => {
   console.log("===========================================================================");
   const definitionTemplate = {
     schema: ledgerSchema,
-    tag: 'TAG',
+    tag: 'default',
     signatureType: 'CL',
     config: { support_revocation: false },
   };
-  const [credDefId, ledgerCredDef] = await agent1.ledger.registerCredentialDefinition(definitionTemplate);
+  const [ledgerCredDefId] = await registerDefinition(agent1, definitionTemplate);
+  credDefId = ledgerCredDefId;
   console.log("credDefId: ", credDefId);
-  console.log("ledgerCredDefId: ", ledgerCredDef);
+
 
   // ISSUE CREDENTIAL
   console.log("===========================================================================");
@@ -305,6 +304,21 @@ class InboundTransporter {
       1000,
     );
   }
+}
+
+async function registerSchema(agent, schemaTemplate) {
+  const [schemaId] = await agent.ledger.registerCredentialSchema(schemaTemplate);
+  console.log('schemaId', schemaId);
+  const ledgerSchema = await agent.ledger.getSchema(schemaId);
+  console.log('ledgerSchemaId, ledgerSchema', schemaId, ledgerSchema);
+  return [schemaId, ledgerSchema];
+}
+
+async function registerDefinition(agent, definitionTemplate) {
+  const [credDefId] = await agent.ledger.registerCredentialDefinition(definitionTemplate);
+  const ledgerCredDef = await agent.ledger.getCredentialDefinition(credDefId);
+  console.log('ledgerCredDefId, ledgerCredDef', credDefId, ledgerCredDef);
+  return [credDefId, ledgerCredDef];
 }
 
 class OutboundTransporter {
