@@ -29,7 +29,7 @@ router.post("/issue", async (request, response) => {
     autoAcceptConnections: true,
     poolName: 'test-103' + Math.random(),
     genesisPath,
-    mediatorUrl: "http://localhost:3001"
+    mediatorUrl: "process.env.MEDIATOR_URL"
   };
   console.log("agentConfig: ", agentConfig);
 
@@ -131,7 +131,7 @@ router.post("/issue-aca", async (request, response) => {
     autoAcceptConnections: true,
     poolName: 'test-103' + Math.random(),
     genesisPath,
-    mediatorUrl: "http://localhost:3001",
+    mediatorUrl: "process.env.MEDIATOR_URL",
     publicDidSeed: '00000000000000000000000000000001'
   };
   const agent2Config = {
@@ -141,7 +141,7 @@ router.post("/issue-aca", async (request, response) => {
     autoAcceptConnections: true,
     poolName: 'test-103' + Math.random(),
     genesisPath,
-    mediatorUrl: "http://localhost:3001",
+    mediatorUrl: "process.env.MEDIATOR_URL",
     publicDidSeed: '00000000000000000000000000000002'
   };
   console.log("agent1Config: ", agent1Config);
@@ -351,7 +351,6 @@ class InboundTransporter {
     poll(
       async () => {
         const downloadedMessages = await agent.routing.downloadMessages();
-       // console.log("New mwssage: agent 2"+downloadedMessages);
         const messages = [...downloadedMessages];
         while (messages && messages.length > 0) {
           const message = messages.shift();
