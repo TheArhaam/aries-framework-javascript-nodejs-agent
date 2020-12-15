@@ -4,7 +4,7 @@ const { poll } = require('await-poll');
 const fetch = require('node-fetch');
 // WINDOWS: add LD_LIBRARY_PATH environment variable
 const indy = require('indy-sdk');
-const { Agent, decodeInvitationFromUrl, encodeInvitationToUrl } = require("aries-framework-javascript");
+const { Agent, decodeInvitationFromUrl, encodeInvitationToUrl, ProofRequest ,ProofRequestTemplate} = require("aries-framework-javascript");
 const axios = require('axios');
 
 // ISSUE CREDENTIAL
@@ -29,7 +29,7 @@ router.post("/issue", async (request, response) => {
     autoAcceptConnections: true,
     poolName: 'test-103' + Math.random(),
     genesisPath,
-    mediatorUrl: process.env.MEDIATOR_URL
+    mediatorUrl: "http://localhost:3001"
   };
   console.log("agentConfig: ", agentConfig);
 
@@ -112,6 +112,7 @@ router.post("/issue", async (request, response) => {
 // ISSUE CREDENTIAL - ACA to ACA
 router.post("/issue-aca", async (request, response) => {
   console.log("ISSUE CREDENTIAL - ACA to ACA");
+  //let proofRequestTemplate = new ProofRequestTemplate;
   // INITIALIZE AGENT
   console.log("===========================================================================");
   console.log("INITIALIZE AGENTS")
@@ -130,7 +131,7 @@ router.post("/issue-aca", async (request, response) => {
     autoAcceptConnections: true,
     poolName: 'test-103' + Math.random(),
     genesisPath,
-    mediatorUrl: process.env.MEDIATOR_URL,
+    mediatorUrl: "http://localhost:3001",
     publicDidSeed: '00000000000000000000000000000001'
   };
   const agent2Config = {
@@ -140,7 +141,7 @@ router.post("/issue-aca", async (request, response) => {
     autoAcceptConnections: true,
     poolName: 'test-103' + Math.random(),
     genesisPath,
-    mediatorUrl: process.env.MEDIATOR_URL,
+    mediatorUrl: "http://localhost:3001",
     publicDidSeed: '00000000000000000000000000000002'
   };
   console.log("agent1Config: ", agent1Config);
@@ -258,7 +259,63 @@ router.post("/issue-aca", async (request, response) => {
   console.log("===========================================================================");
   const [credNew] = await agent2.credentials.getCredentials();
   console.log("credNew: ", credNew);
+  console.log("=========================");
+  console.log("Send Proof request");
+  console.log("============================")
 
+  req_a={
+    "0_name_uuid": {
+      "name": "name",
+      "restrictions": [
+        {
+          "cred_def_id": "VA3GvaAZRZwrH4dDtVWd6E:3:CL:8:default"
+        }
+      ]
+    },
+    "0_date_uuid": {
+      "name": "date",
+      "restrictions": [
+        {
+          "cred_def_id": "VA3GvaAZRZwrH4dDtVWd6E:3:CL:8:default"
+        }
+      ]
+    },
+    "0_degree_uuid": {
+      "name": "degree",
+      "restrictions": [
+        {
+          "cred_def_id": "VA3GvaAZRZwrH4dDtVWd6E:3:CL:8:default"
+        }
+      ]
+    },
+    "0_self_attested_thing_uuid": {
+      "name": "self_attested_thing"
+    }
+  }
+  
+  //Proof request Temple
+  proofRequestTemplate = ({
+    name: "Proof of Education",
+    version: "1.0",
+    //"nonce": str(uuid4().int),
+    requestedAttributes: req_a,
+    requestedPredicates: {}
+  });
+
+  agent1.proof.sendProofRequest(connection,{
+    credentialDefinitionId: credDefId,
+    comment: 'Test Proof',
+    proofRequest: proofRequestTemplate });
+
+  await sleep(6000);
+ 
+  console.log("============================");
+  console.log("GET ALL PROOF REQUEST");
+  console.log("============================")
+
+  const [proof] = await agent1.proof.getProofs();
+  console.log(proof)
+  
   return response.status(200).json("Credential Issued!");
 });
 
@@ -266,7 +323,7 @@ function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
-}
+}   
 
 class InboundTransporter {
   constructor() {
@@ -294,6 +351,7 @@ class InboundTransporter {
     poll(
       async () => {
         const downloadedMessages = await agent.routing.downloadMessages();
+       // console.log("New mwssage: agent 2"+downloadedMessages);
         const messages = [...downloadedMessages];
         while (messages && messages.length > 0) {
           const message = messages.shift();
