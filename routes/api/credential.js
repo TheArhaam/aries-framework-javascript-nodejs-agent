@@ -6,6 +6,7 @@ const fetch = require('node-fetch');
 const indy = require('indy-sdk');
 const { Agent, decodeInvitationFromUrl, encodeInvitationToUrl, ProofRequest, ProofRequestTemplate } = require("aries-framework-javascript");
 const axios = require('axios');
+//const { fromCodePoint } = require("core-js/fn/string");
 
 // ISSUE CREDENTIAL
 router.post("/issue", async (request, response) => {
@@ -109,10 +110,92 @@ router.post("/issue", async (request, response) => {
   return response.status(200).json("Credential Issued!");
 });
 
+router.post("/issue-test", async (request, response) => {
+
+  let data = { "0_age_uuid": [{ "cred_info": { "referent": "2df7ab2a-dd8d-4554-a8ac-14001470dc4f", "attrs": { "age": "99", "name": "test" }, "schema_id": "4cLztgZYocjqTdAZM93t27:2:test-schema:1.1", "cred_def_id": "4cLztgZYocjqTdAZM93t27:3:CL:43046:default", "rev_reg_id": null, "cred_rev_id": null }, "interval": null }], "0_name_uuid": [{ "cred_info": { "referent": "2df7ab2a-dd8d-4554-a8ac-14001470dc4f", "attrs": { "name": "test", "age": "99" }, "schema_id": "4cLztgZYocjqTdAZM93t27:2:test-schema:1.1", "cred_def_id": "4cLztgZYocjqTdAZM93t27:3:CL:43046:default", "rev_reg_id": null, "cred_rev_id": null }, "interval": null }] };
+
+
+  console.log("---------------------------");
+
+
+  let reqCred = {};
+  let schemas = {};
+  let credDef = {};
+  Object.keys(data).forEach(function (key) {
+    console.log('Key : ' + key);
+    let dataKey = key;
+    let item = data[key];
+    if (item) {
+      Object.keys(item).forEach(function (itemKey) {
+        // console.log("sub:" + JSON.stringify(itemKey));
+        if (item[itemKey].cred_info) {
+          // Construct reqestedCredentials Object
+          let credDefId = item[itemKey].cred_info.cred_def_id;
+          if (credDefId) {
+            //  console.log("value:" + JSON.stringify(credDefId));
+            reqCred[dataKey] = { cred_id: credDefId };
+            schemas[credDef] = '';//await agent2.ledger.getCredentialDefinition(credDef);
+          }
+          //Construct cred defination object
+
+          //Construct schema object
+          let schemaId = item[itemKey].cred_info.schema_id;
+          if (schemaId) {
+            //console.log("value:" + JSON.stringify(schemaId));
+            schemas[schemaId] = '';//await agent2.ledger.getSchema(schemaId);
+          }
+        }
+      });
+    }
+  })
+
+
+  let req = {};
+  req['reqCred'] = reqCred;
+  req['schemas'] = schemas;
+  req['credDef'] = credDef;
+
+  console.log("OBJ-:" + JSON.stringify(req));
+  // let schema1 = await agent2.ledger.getSchema(schemaId);
+  // //console.log("Schema def id : "+schemaId);
+  // //console.log("Cred def id : "+credDefId);
+  // let sh = {
+  //   // [schemaId]
+  //   "4cLztgZYocjqTdAZM93t27:2:test-schema:1.1": schema1
+  // }
+  // let creDef1 = await agent2.ledger.getCredentialDefinition(credDefId);
+  // //console.log("CedFDefff:" + JSON.stringify(creDef1))
+  // let cd = {
+  //   "4cLztgZYocjqTdAZM93t27:3:CL:43046:default": creDef1
+  // }
+  //var obj = JSON.parse( JSON.stringify(rc));
+
+
+
+
+  // console.log("Cred:" + JSON.stringify(ee));
+  // let rc = [];
+  // Object.keys(data).forEach(function (key) {
+  //   console.log('Key : ' + key);
+  //   let dataKey = key;
+  //   let item = data[key];
+  //   if (item) {
+  //     Object.keys(item).forEach(function (itemKey) {
+  //       console.log("sub:" + JSON.stringify(itemKey));
+  //       if (item[itemKey].cred_info && item[itemKey].cred_info.cred_def_id) {
+  //         console.log("value:" + JSON.stringify(item[itemKey].cred_info.cred_def_id));
+  //         rc.push({ [dataKey]: { cred_id: item[itemKey].cred_info.cred_def_id } });
+  //       }
+  //     });
+  //   }
+  // })
+
+
+});
+
 // ISSUE CREDENTIAL - ACA to ACA
 router.post("/issue-aca", async (request, response) => {
   console.log("ISSUE CREDENTIAL - ACA to ACA");
-  //let proofRequestTemplate = new ProofRequestTemplate;
   // INITIALIZE AGENT
   console.log("===========================================================================");
   console.log("INITIALIZE AGENTS")
@@ -187,7 +270,10 @@ router.post("/issue-aca", async (request, response) => {
     attributes: ['name', 'age'],
     version: '1.1',
   };
-  const [, ledgerSchema] = await registerSchema(agent1, schemaTemplate);
+
+  const [schemaId, ledgerSchema] = await registerSchema(agent1, schemaTemplate);
+
+  await agent1.ledger.registerCredentialDefinition
   console.log("ledgerSchema: ", ledgerSchema);
 
   // CREATE CREDENTIAL DEFINITION
@@ -203,6 +289,7 @@ router.post("/issue-aca", async (request, response) => {
   const [ledgerCredDefId] = await registerDefinition(agent1, definitionTemplate);
   credDefId = ledgerCredDefId;
   console.log("credDefId: ", credDefId);
+
 
 
   // ISSUE CREDENTIAL
@@ -325,14 +412,14 @@ router.post("/issue-aca", async (request, response) => {
     requested_predicates: {}
   });
 
-  // console.log("Fetch crdentials");
-  console.log("Request for fetching credentials:" + JSON.stringify(proofRequestTemplate2));
-
+  console.log("============================");
+  console.log("GENERATE PROOF");
   console.log("============================")
 
-  console.log("Fetch crednetials:");
-  await sleep(6000);
-  console.log("Final" + JSON.stringify(await agent2.credentials.getCredentialsForProofReq(proofRequestTemplate2)));
+  console.log("calling to genrate proof:");
+ // await sleep(6000);
+
+  await agent2.proof.sendPresentation(connection, proofRequestTemplate2);
   return response.status(200).json("Passed !");
 });
 
@@ -382,11 +469,14 @@ class InboundTransporter {
 
 async function registerSchema(agent, schemaTemplate) {
   const [schemaId] = await agent.ledger.registerCredentialSchema(schemaTemplate);
+
   console.log('schemaId', schemaId);
   const ledgerSchema = await agent.ledger.getSchema(schemaId);
   console.log('ledgerSchemaId, ledgerSchema', schemaId, ledgerSchema);
   return [schemaId, ledgerSchema];
 }
+
+
 
 async function registerDefinition(agent, definitionTemplate) {
   const [credDefId] = await agent.ledger.registerCredentialDefinition(definitionTemplate);
@@ -449,5 +539,8 @@ async function downloadGenesis() {
   const response = await axios.get(url);
   return response.data;
 }
+
+
+
 
 module.exports = router;
