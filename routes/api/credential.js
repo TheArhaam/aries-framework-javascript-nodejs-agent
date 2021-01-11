@@ -417,9 +417,10 @@ router.post("/issue-aca", async (request, response) => {
   console.log("============================")
 
   console.log("calling to genrate proof:");
- // await sleep(6000);
+  await sleep(6000);
 
   await agent2.proof.sendPresentation(connection, proofRequestTemplate2);
+  
   return response.status(200).json("Passed !");
 });
 
